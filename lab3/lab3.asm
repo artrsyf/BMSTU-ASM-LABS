@@ -4,6 +4,7 @@ section .data
     start_msg db "Enter a, b:", 10, 13, 0
     optional_msg db "Enter k:", 10, 13, 0
     result_msg db "Result is: f = ", 0
+    end_line db 10, 13, 0
     
 section .bss
     a resw 10
@@ -20,7 +21,6 @@ CMAIN:
     
     GET_DEC 4, [a]
     GET_DEC 4, [b]
-    
     mov eax, [a]
     add eax, [b]
     
@@ -46,6 +46,5 @@ CONTINUE:
     PRINT_STRING result_msg
     mov [f], eax
     PRINT_DEC 4, [f]
-    
-    
-    
+    PRINT_STRING end_line
+    ret    

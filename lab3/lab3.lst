@@ -1,0 +1,927 @@
+     1                                  %include "io.inc"
+     2                              <1> %ifndef IO_SYS
+     3                              <1> %define IO_SYS
+     4                              <1> 
+     5                              <1> %macro sasmMacroFunc 0.nolist ;func for debug
+     6                              <1>     %push sasmMacroFunc
+     7                              <1>     call %$sasmMacro
+     8                              <1>     jmp %$sasmMacroE
+     9                              <1>     %$sasmMacro:
+    10                              <1>     jmp %%after_data
+    11                              <1> section .data
+    12                              <1>     %$sasmRetAddr dd 0
+    13                              <1> section .text
+    14                              <1>     %%after_data:
+    15                              <1>     push ebx
+    16                              <1>     mov ebx, dword[esp + 4]
+    17                              <1>     mov dword[%$sasmRetAddr], ebx
+    18                              <1>     mov ebx, dword[esp]
+    19                              <1>     mov dword[esp + 4], ebx
+    20                              <1>     pop ebx
+    21                              <1>     pop ebx
+    22                              <1> %endmacro
+    23                              <1> 
+    24                              <1> %macro sasmMacroFuncE 0.nolist ;exit
+    25                              <1>     push dword[%$sasmRetAddr]
+    26                              <1>     ret
+    27                              <1>     %$sasmMacroE:
+    28                              <1>     %pop
+    29                              <1> %endmacro
+    30                              <1> 
+    31                              <1> %macro CEXTERN 1.nolist
+    32                              <1>     extern %1
+    33                              <1> %endmacro
+    34                              <1> %define CMAIN main
+    35                              <1> 
+    36                              <1> CEXTERN printf
+    37                              <1> CEXTERN scanf
+    38                              <1> CEXTERN putchar
+    39                              <1> CEXTERN fgets
+    40                              <1> CEXTERN puts
+    41                              <1> CEXTERN fputs
+    42                              <1> CEXTERN fflush
+    43                              <1> 
+    44                              <1> CEXTERN get_stdin
+    45                              <1> CEXTERN get_stdout
+    46                              <1> 
+    47                              <1> ; Make stack be 16 bytes aligned after pushing %1 bytes
+    48                              <1> %macro ALIGN_STACK 1.nolist
+    49                              <1>     enter 0, 0
+    50                              <1>     sub esp, %1
+    51                              <1>     and esp, 0xfffffff0
+    52                              <1>     add esp, %1
+    53                              <1> %endmacro
+    54                              <1> 
+    55                              <1> %macro UNALIGN_STACK 0.nolist
+    56                              <1>     leave
+    57                              <1> %endmacro
+    58                              <1> 
+    59                              <1> %macro FFLUSH_STDOUT 0.nolist
+    60                              <1>     ALIGN_STACK 4
+    61                              <1>     call get_stdout
+    62                              <1>     push eax
+    63                              <1>     call fflush
+    64                              <1>     UNALIGN_STACK
+    65                              <1> %endmacro
+    66                              <1> 
+    67                              <1> %macro IS_GPR 1.nolist
+    68                              <1>     %push IS_GPR
+    69                              <1>     %assign %$is_reg 0
+    70                              <1>     %assign %$reg_size 1
+    71                              <1>     %ifidni %1, ah
+    72                              <1>         %assign %$is_reg 1
+    73                              <1>     %elifidni %1, al
+    74                              <1>         %assign %$is_reg 1
+    75                              <1>     %elifidni %1, bl
+    76                              <1>         %assign %$is_reg 1
+    77                              <1>     %elifidni %1, bh
+    78                              <1>         %assign %$is_reg 1
+    79                              <1>     %elifidni %1, cl
+    80                              <1>         %assign %$is_reg 1
+    81                              <1>     %elifidni %1, ch
+    82                              <1>         %assign %$is_reg 1
+    83                              <1>     %elifidni %1, dl
+    84                              <1>         %assign %$is_reg 1
+    85                              <1>     %elifidni %1, dh
+    86                              <1>         %assign %$is_reg 1
+    87                              <1>     %elifidni %1, ax
+    88                              <1>         %assign %$is_reg 1
+    89                              <1>         %assign %$reg_size 2
+    90                              <1>     %elifidni %1, bx
+    91                              <1>         %assign %$is_reg 1
+    92                              <1>         %assign %$reg_size 2
+    93                              <1>     %elifidni %1, cx
+    94                              <1>         %assign %$is_reg 1
+    95                              <1>         %assign %$reg_size 2
+    96                              <1>     %elifidni %1, dx
+    97                              <1>         %assign %$is_reg 1
+    98                              <1>         %assign %$reg_size 2
+    99                              <1>     %elifidni %1, sp
+   100                              <1>         %assign %$is_reg 1
+   101                              <1>         %assign %$reg_size 2
+   102                              <1>     %elifidni %1, bp
+   103                              <1>         %assign %$is_reg 1
+   104                              <1>         %assign %$reg_size 2
+   105                              <1>     %elifidni %1, si
+   106                              <1>         %assign %$is_reg 1
+   107                              <1>         %assign %$reg_size 2
+   108                              <1>     %elifidni %1, di
+   109                              <1>         %assign %$is_reg 1
+   110                              <1>         %assign %$reg_size 2
+   111                              <1>     %elifidni %1, eax
+   112                              <1>         %assign %$is_reg 1
+   113                              <1>         %assign %$reg_size 4
+   114                              <1>     %elifidni %1, ebx
+   115                              <1>         %assign %$is_reg 1
+   116                              <1>         %assign %$reg_size 4
+   117                              <1>     %elifidni %1, ecx
+   118                              <1>         %assign %$is_reg 1
+   119                              <1>         %assign %$reg_size 4
+   120                              <1>     %elifidni %1, edx
+   121                              <1>         %assign %$is_reg 1
+   122                              <1>         %assign %$reg_size 4
+   123                              <1>     %elifidni %1, esp
+   124                              <1>         %assign %$is_reg 1
+   125                              <1>         %assign %$reg_size 4
+   126                              <1>     %elifidni %1, ebp
+   127                              <1>         %assign %$is_reg 1
+   128                              <1>         %assign %$reg_size 4
+   129                              <1>     %elifidni %1, esi
+   130                              <1>         %assign %$is_reg 1
+   131                              <1>         %assign %$reg_size 4
+   132                              <1>     %elifidni %1, edi
+   133                              <1>         %assign %$is_reg 1
+   134                              <1>         %assign %$reg_size 4
+   135                              <1>     %endif
+   136                              <1> %endmacro
+   137                              <1> 
+   138                              <1> 
+   139                              <1> %macro PRINT_STRING 1.nolist
+   140                              <1>     sasmMacroFunc
+   141                              <1>     IS_GPR %1
+   142                              <1>     %if %$is_reg = 1
+   143                              <1>     %error "Register as parameter is not supported"
+   144                              <1>     %endif
+   145                              <1>     %pop
+   146                              <1> 
+   147                              <1> %ifid %1
+   148                              <1> ; variable
+   149                              <1>     pushf
+   150                              <1>     push edx
+   151                              <1>     push ecx
+   152                              <1>     push eax	
+   153                              <1> 
+   154                              <1>     ALIGN_STACK 0
+   155                              <1>     call get_stdout
+   156                              <1>     UNALIGN_STACK
+   157                              <1>     ALIGN_STACK 8
+   158                              <1>     push eax 
+   159                              <1>     push %1
+   160                              <1> 
+   161                              <1> %elifstr %1
+   162                              <1> ; string literal
+   163                              <1>     pushf
+   164                              <1>     push edx
+   165                              <1>     push ecx
+   166                              <1>     push eax	
+   167                              <1> 
+   168                              <1>     jmp %%after_str
+   169                              <1>     %%str	db	%1, 0
+   170                              <1> %%after_str:	
+   171                              <1>     ALIGN_STACK 0
+   172                              <1>     call get_stdout
+   173                              <1>     UNALIGN_STACK
+   174                              <1>     ALIGN_STACK 8
+   175                              <1>     push eax
+   176                              <1>     push %%str
+   177                              <1> 
+   178                              <1> %else
+   179                              <1> ; address expression
+   180                              <1>     jmp %%after_data
+   181                              <1> section .data
+   182                              <1>     %%tmp dd 0
+   183                              <1> section .text
+   184                              <1> %%after_data:
+   185                              <1>     mov dword [%%tmp], edi
+   186                              <1>     lea edi, %1
+   187                              <1> 
+   188                              <1>     pushf
+   189                              <1>     push edx
+   190                              <1>     push ecx
+   191                              <1>     push eax
+   192                              <1> 
+   193                              <1>     ALIGN_STACK 0
+   194                              <1>     call get_stdout
+   195                              <1>     UNALIGN_STACK
+   196                              <1>     ALIGN_STACK 8
+   197                              <1>     push eax
+   198                              <1>     push edi
+   199                              <1> 
+   200                              <1>     mov edi, dword [%%tmp]
+   201                              <1>     
+   202                              <1> %endif
+   203                              <1> 
+   204                              <1>     call fputs
+   205                              <1>     UNALIGN_STACK
+   206                              <1>     FFLUSH_STDOUT
+   207                              <1>     pop eax
+   208                              <1>     pop ecx
+   209                              <1>     pop edx
+   210                              <1>     popf
+   211                              <1>     sasmMacroFuncE
+   212                              <1> %endmacro
+   213                              <1> 
+   214                              <1> %macro NEWLINE 0.nolist
+   215                              <1>     PRINT_STRING `\n`
+   216                              <1> %endmacro
+   217                              <1> 
+   218                              <1> ; size baseformatletter ("d", "u", "x") varname (%%fmt)
+   219                              <1> %macro ___MAKE_FORMAT_STR 3.nolist
+   220                              <1>     jmp %%after_fmt
+   221                              <1>     %if %1 = 1
+   222                              <1>         %strcat fmts "%hh" %2
+   223                              <1>         
+   224                              <1>     %elif %1 = 2
+   225                              <1>         %strcat fmts "%h" %2
+   226                              <1>     %elif %1 = 4
+   227                              <1>         %strcat fmts "%" %2
+   228                              <1>     %else
+   229                              <1>         %error "Expected numeric constant 1, 2 or 4 as 1st argument"
+   230                              <1>     %endif
+   231                              <1>     %3 db fmts, 0
+   232                              <1>     %%after_fmt:
+   233                              <1> %endmacro
+   234                              <1> 
+   235                              <1> ; size data baseformatletter ("d", "u", "x") signextendinst (movzx, movsx)
+   236                              <1> %macro ___PRINT_NUM_COMMON 4.nolist
+   237                              <1>     ___MAKE_FORMAT_STR %1, %3, %%fmt
+   238                              <1>         
+   239                              <1>     jmp %%after_data
+   240                              <1> section .data
+   241                              <1>     %%tmp dd 0
+   242                              <1> 
+   243                              <1> section .text
+   244                              <1> %%after_data:
+   245                              <1> 
+   246                              <1>     IS_GPR %2
+   247                              <1> 
+   248                              <1> %if %$is_reg = 1
+   249                              <1> ; register
+   250                              <1> 
+   251                              <1>     mov dword [%%tmp], eax    ; may be register is esp, need to take care
+   252                              <1> 
+   253                              <1>     %if %$reg_size = 1
+   254                              <1>         %4 eax, %2
+   255                              <1>     %elif %$reg_size = 2
+   256                              <1>         %4 eax, %2
+   257                              <1>     %else ; %$reg_size = 4
+   258                              <1>         mov eax, %2
+   259                              <1>     %endif
+   260                              <1> 
+   261                              <1>     pushf
+   262                              <1>     push dword [%%tmp] ; eax
+   263                              <1>     push ecx
+   264                              <1>     push edx
+   265                              <1> 
+   266                              <1>     ALIGN_STACK 8
+   267                              <1>     push eax
+   268                              <1> 
+   269                              <1> %elifid %2
+   270                              <1> ; variable (hope so)
+   271                              <1>     pushf
+   272                              <1>     push eax
+   273                              <1>     push ecx
+   274                              <1>     push edx
+   275                              <1>     
+   276                              <1> %if %1 = 1
+   277                              <1>     %4 eax, byte [%2]
+   278                              <1> %elif %1 = 2
+   279                              <1>     %4 eax, word [%2]
+   280                              <1> %else ; %1 = 4
+   281                              <1>     mov eax, dword [%2]
+   282                              <1> %endif
+   283                              <1> 
+   284                              <1>     ALIGN_STACK 8
+   285                              <1>     push eax
+   286                              <1> 
+   287                              <1> %elifnum %2
+   288                              <1>     pushf
+   289                              <1>     push eax
+   290                              <1>     push ecx
+   291                              <1>     push edx
+   292                              <1> 
+   293                              <1>     ALIGN_STACK 8
+   294                              <1>     push %2
+   295                              <1> %elifstr %2
+   296                              <1>     pushf
+   297                              <1>     push eax
+   298                              <1>     push ecx
+   299                              <1>     push edx
+   300                              <1> 
+   301                              <1>     ALIGN_STACK 8
+   302                              <1>     push %2
+   303                              <1> 
+   304                              <1> %else
+   305                              <1> ; may be, address expression?
+   306                              <1>     
+   307                              <1>     mov dword [%%tmp], eax    ; may use register esp, need to take care
+   308                              <1> 
+   309                              <1>     %if %1 = 1
+   310                              <1>         %4 eax, byte %2
+   311                              <1>     %elif %1 = 2
+   312                              <1>         %4 eax, word %2
+   313                              <1>     %else ; %1 = 4
+   314                              <1>         mov eax, dword %2
+   315                              <1>     %endif
+   316                              <1> 
+   317                              <1>     pushf
+   318                              <1>     push dword [%%tmp] ; eax
+   319                              <1>     push ecx
+   320                              <1>     push edx
+   321                              <1> 
+   322                              <1>     ALIGN_STACK 8
+   323                              <1>     push eax
+   324                              <1> 
+   325                              <1> %endif
+   326                              <1> 
+   327                              <1>     push %%fmt
+   328                              <1>     call printf
+   329                              <1>     UNALIGN_STACK
+   330                              <1>     FFLUSH_STDOUT
+   331                              <1> 
+   332                              <1>     pop edx
+   333                              <1>     pop ecx
+   334                              <1>     pop eax
+   335                              <1>     popf    
+   336                              <1> 
+   337                              <1>     %pop ; IS_REG
+   338                              <1>     
+   339                              <1> %endmacro
+   340                              <1> 
+   341                              <1> %macro PRINT_DEC 2.nolist
+   342                              <1>     sasmMacroFunc
+   343                              <1>     ___PRINT_NUM_COMMON %1, %2, "d", movsx
+   344                              <1>     sasmMacroFuncE
+   345                              <1> %endmacro
+   346                              <1> 
+   347                              <1> %macro PRINT_UDEC 2.nolist
+   348                              <1>     sasmMacroFunc
+   349                              <1>     ___PRINT_NUM_COMMON %1, %2, "u", movzx
+   350                              <1>     sasmMacroFuncE
+   351                              <1> %endmacro
+   352                              <1> 
+   353                              <1> %macro PRINT_HEX 2.nolist
+   354                              <1>     sasmMacroFunc
+   355                              <1>     ___PRINT_NUM_COMMON %1, %2, "x", movzx
+   356                              <1>     sasmMacroFuncE
+   357                              <1> %endmacro
+   358                              <1> 
+   359                              <1> %macro PRINT_CHAR 1.nolist
+   360                              <1>     sasmMacroFunc
+   361                              <1> 
+   362                              <1>     jmp %%after_data
+   363                              <1> section .data
+   364                              <1>     %%tmp dd 0
+   365                              <1> 
+   366                              <1> section .text
+   367                              <1> %%after_data:
+   368                              <1> 
+   369                              <1>     IS_GPR %1
+   370                              <1> 
+   371                              <1> %if %$is_reg = 1
+   372                              <1> ; register
+   373                              <1> 
+   374                              <1>     mov dword [%%tmp], eax    ; may be register is esp, need to take care
+   375                              <1> 
+   376                              <1>     %if %$reg_size = 1
+   377                              <1>         movzx eax, %1
+   378                              <1>     %elif %$reg_size = 2
+   379                              <1>         movzx eax, %1
+   380                              <1>     %else ; %$reg_size = 4
+   381                              <1>         mov eax, %1
+   382                              <1>     %endif
+   383                              <1> 
+   384                              <1>     pushf
+   385                              <1>     push dword [%%tmp] ; eax
+   386                              <1>     push ecx
+   387                              <1>     push edx
+   388                              <1> 
+   389                              <1>     and eax, 0xff
+   390                              <1>     ALIGN_STACK 4
+   391                              <1>     push eax
+   392                              <1> 
+   393                              <1> %elifid %1
+   394                              <1> ; variable (hope so)
+   395                              <1>     pushf
+   396                              <1>     push eax
+   397                              <1>     push ecx
+   398                              <1>     push edx
+   399                              <1> 
+   400                              <1>     movzx eax, byte [%1]
+   401                              <1>     ALIGN_STACK 4    
+   402                              <1>     push eax
+   403                              <1> 
+   404                              <1> %elifnum %1
+   405                              <1>     pushf
+   406                              <1>     push eax
+   407                              <1>     push ecx
+   408                              <1>     push edx
+   409                              <1> 
+   410                              <1>     ALIGN_STACK 4
+   411                              <1>     push (%1 & 0xff)
+   412                              <1> %elifstr %1
+   413                              <1>     pushf
+   414                              <1>     push eax
+   415                              <1>     push ecx
+   416                              <1>     push edx
+   417                              <1> 
+   418                              <1> ; string; select only 1st byte
+   419                              <1> %substr tstr %1 1
+   420                              <1>     ALIGN_STACK 4
+   421                              <1>     push tstr
+   422                              <1> 
+   423                              <1> %else
+   424                              <1> ; may be, address expression?
+   425                              <1>     
+   426                              <1>     mov dword [%%tmp], eax    ; may use register esp, need to take care
+   427                              <1> 
+   428                              <1>     movzx eax, byte %1
+   429                              <1> 
+   430                              <1>     pushf
+   431                              <1>     push dword [%%tmp] ; eax
+   432                              <1>     push ecx
+   433                              <1>     push edx
+   434                              <1> 
+   435                              <1>     ALIGN_STACK 4
+   436                              <1>     push eax
+   437                              <1> 
+   438                              <1> %endif
+   439                              <1> 
+   440                              <1>     call putchar
+   441                              <1>     UNALIGN_STACK
+   442                              <1>     FFLUSH_STDOUT
+   443                              <1> 
+   444                              <1>     pop edx
+   445                              <1>     pop ecx
+   446                              <1>     pop eax
+   447                              <1>     popf    
+   448                              <1> 
+   449                              <1>     %pop ; IS_REG
+   450                              <1>     sasmMacroFuncE
+   451                              <1> %endmacro
+   452                              <1> 
+   453                              <1> 
+   454                              <1> ; size data baseformatletter ("d", "u", "x") signextendinst (movzx, movsx)
+   455                              <1> %macro ___GET_NUM_COMMON 4.nolist
+   456                              <1> 
+   457                              <1>     ___MAKE_FORMAT_STR %1, %3, %%fmt
+   458                              <1>         
+   459                              <1>     jmp %%after_data
+   460                              <1> section .data
+   461                              <1>     %%tmp dd 0
+   462                              <1>     %%read_tmp dd 0
+   463                              <1> 
+   464                              <1> section .text
+   465                              <1> %%after_data:
+   466                              <1> 
+   467                              <1>     IS_GPR %2
+   468                              <1> 
+   469                              <1> %if %$is_reg = 1
+   470                              <1> ; register
+   471                              <1> 
+   472                              <1>     %ifidni %2, esp
+   473                              <1>         %error "Won't read to esp!" 
+   474                              <1>     %elifidni %2, sp
+   475                              <1>         %error "Won't read to sp!" 
+   476                              <1>     %endif
+   477                              <1> 
+   478                              <1>     %if %$reg_size < %1
+   479                              <1>         %error "Too small register for requested data"
+   480                              <1>     %endif
+   481                              <1> 
+   482                              <1>     pushf
+   483                              <1>     push eax
+   484                              <1>     push ecx
+   485                              <1>     push edx
+   486                              <1> 
+   487                              <1> ; we will have to do postprocessing after scanf
+   488                              <1>     ALIGN_STACK 8
+   489                              <1>     push %%read_tmp
+   490                              <1> 
+   491                              <1> %elifid %2
+   492                              <1> ; variable (hope so)
+   493                              <1>     pushf
+   494                              <1>     push eax
+   495                              <1>     push ecx
+   496                              <1>     push edx
+   497                              <1> 
+   498                              <1>     ALIGN_STACK 8    
+   499                              <1>     push %2
+   500                              <1> %elifnum %2
+   501                              <1>     %error "Incorrect parameter (number)"
+   502                              <1> %elifstr %2
+   503                              <1>     %error "Incorrect parameter (string)"
+   504                              <1> %else
+   505                              <1> ; may be, address expression?
+   506                              <1>     
+   507                              <1>     mov dword [%%tmp], eax    ; may use register esp, need to take care
+   508                              <1> 
+   509                              <1>     lea eax, %2
+   510                              <1> 
+   511                              <1>     pushf
+   512                              <1>     push dword [%%tmp] ; eax
+   513                              <1>     push ecx
+   514                              <1>     push edx
+   515                              <1> 
+   516                              <1>     ALIGN_STACK 8
+   517                              <1>     push eax
+   518                              <1> %endif
+   519                              <1> 
+   520                              <1>     push %%fmt
+   521                              <1>     call scanf
+   522                              <1>     UNALIGN_STACK
+   523                              <1> 
+   524                              <1>     pop edx
+   525                              <1>     pop ecx
+   526                              <1>     pop eax
+   527                              <1>     popf    
+   528                              <1> 
+   529                              <1> %if %$is_reg = 1
+   530                              <1> ; register postprocessing
+   531                              <1> 
+   532                              <1> %if %$reg_size = %1
+   533                              <1>     mov %2, [%%read_tmp]
+   534                              <1> %else ; extend bytes 1 -> 2, 1 -> 4, 2 -> 4
+   535                              <1>     %if %1 = 1
+   536                              <1>         %4 %2, byte [%%read_tmp]
+   537                              <1>     %else ; 2 -> 4
+   538                              <1>         %4 %2, word [%%read_tmp]
+   539                              <1>     %endif
+   540                              <1> %endif
+   541                              <1> 
+   542                              <1> %endif
+   543                              <1> 
+   544                              <1>     %pop ; IS_REG
+   545                              <1> %endmacro
+   546                              <1> 
+   547                              <1> %macro GET_HEX 2.nolist
+   548                              <1>     sasmMacroFunc
+   549                              <1>     ___GET_NUM_COMMON %1, %2, "x", movzx
+   550                              <1>     sasmMacroFuncE
+   551                              <1> %endmacro
+   552                              <1> 
+   553                              <1> %macro GET_DEC 2.nolist
+   554                              <1>     sasmMacroFunc
+   555                              <1>     ___GET_NUM_COMMON %1, %2, "d", movsx
+   556                              <1>     sasmMacroFuncE
+   557                              <1> %endmacro
+   558                              <1> 
+   559                              <1> %macro GET_UDEC 2.nolist
+   560                              <1>     sasmMacroFunc
+   561                              <1>     ___GET_NUM_COMMON %1, %2, "u", movzx
+   562                              <1>     sasmMacroFuncE
+   563                              <1> %endmacro
+   564                              <1> 
+   565                              <1> 
+   566                              <1> %macro GET_CHAR 1.nolist
+   567                              <1>     sasmMacroFunc
+   568                              <1> 
+   569                              <1>     jmp %%after_data
+   570                              <1> section .data
+   571                              <1>     %%fmt db "%c", 0
+   572                              <1>     %%tmp dd 0
+   573                              <1>     %%read_tmp db 0
+   574                              <1> 
+   575                              <1> section .text
+   576                              <1> %%after_data:
+   577                              <1> 
+   578                              <1>     IS_GPR %1
+   579                              <1> 
+   580                              <1> %if %$is_reg = 1
+   581                              <1> ; register
+   582                              <1> 
+   583                              <1>     %ifidni %1, esp
+   584                              <1>         %error "Won't read to esp!" 
+   585                              <1>     %elifidni %1, sp
+   586                              <1>         %error "Won't read to sp!" 
+   587                              <1>     %elifidni %1, spl
+   588                              <1>         %error "Won't read to spl!" 
+   589                              <1>     %endif
+   590                              <1> 
+   591                              <1>     pushf
+   592                              <1>     push eax
+   593                              <1>     push ecx
+   594                              <1>     push edx
+   595                              <1> 
+   596                              <1>     ALIGN_STACK 8
+   597                              <1> ; we will have to do postprocessing after scanf
+   598                              <1>     push %%read_tmp
+   599                              <1> 
+   600                              <1> %elifid %1
+   601                              <1> ; variable (hope so)
+   602                              <1>     pushf
+   603                              <1>     push eax
+   604                              <1>     push ecx
+   605                              <1>     push edx
+   606                              <1> 
+   607                              <1>     ALIGN_STACK 8
+   608                              <1>     push %1
+   609                              <1>     
+   610                              <1> %elifnum %1
+   611                              <1>     %error "Incorrect parameter (number)"
+   612                              <1> %elifstr %1
+   613                              <1>     %error "Incorrect parameter (string)"
+   614                              <1> %else
+   615                              <1> ; may be, address expression?
+   616                              <1>     
+   617                              <1>     mov dword [%%tmp], eax    ; may use register esp, need to take care
+   618                              <1> 
+   619                              <1>     lea eax, %1
+   620                              <1> 
+   621                              <1>     pushf
+   622                              <1>     push dword [%%tmp] ; eax
+   623                              <1>     push ecx
+   624                              <1>     push edx
+   625                              <1> 
+   626                              <1>     ALIGN_STACK 8
+   627                              <1>     push eax
+   628                              <1> %endif
+   629                              <1> 
+   630                              <1>     push %%fmt
+   631                              <1>     call scanf
+   632                              <1>     UNALIGN_STACK
+   633                              <1> 
+   634                              <1>     pop edx
+   635                              <1>     pop ecx
+   636                              <1>     pop eax
+   637                              <1>     popf    
+   638                              <1> 
+   639                              <1> %if %$is_reg = 1
+   640                              <1> ; register postprocessing
+   641                              <1> 
+   642                              <1> %if %$reg_size = 1
+   643                              <1>     mov %1, byte [%%read_tmp]
+   644                              <1> %else ; zero extend bytes 1 -> 2, 1 -> 4
+   645                              <1>     movzx %1, byte [%%read_tmp]
+   646                              <1> %endif
+   647                              <1> 
+   648                              <1> %endif
+   649                              <1> 
+   650                              <1>     %pop ; IS_REG
+   651                              <1>     sasmMacroFuncE
+   652                              <1> %endmacro
+   653                              <1> 
+   654                              <1> 
+   655                              <1> %macro GET_STRING 2.nolist
+   656                              <1>     sasmMacroFunc
+   657                              <1> 
+   658                              <1>     IS_GPR %1
+   659                              <1> 
+   660                              <1> %if %$is_reg = 1
+   661                              <1>     %error "Incorrect 1st parameter (register)"
+   662                              <1> %endif
+   663                              <1>     
+   664                              <1> 
+   665                              <1>     %pop
+   666                              <1> 
+   667                              <1>     IS_GPR %2
+   668                              <1> 
+   669                              <1> %if %$is_reg = 1
+   670                              <1>     ;
+   671                              <1> %elifnum %2
+   672                              <1>     %if %2 <= 0
+   673                              <1>         %error "Second parameter must be positive"
+   674                              <1>     %endif
+   675                              <1> %else  
+   676                              <1>     %error "Second parameter must be numeric constant or register"
+   677                              <1> %endif
+   678                              <1> 
+   679                              <1>     %pop
+   680                              <1> 
+   681                              <1> %ifid %1
+   682                              <1> ; variable (hope so)
+   683                              <1>     push esi
+   684                              <1>     ;count
+   685                              <1>     IS_GPR %2
+   686                              <1>     %if %$is_reg = 1 
+   687                              <1>         %if %$reg_size = 1
+   688                              <1>             movzx esi, %2
+   689                              <1>         %elif %$reg_size = 2
+   690                              <1>             movzx esi, %2
+   691                              <1>         %else ; %$reg_size = 4
+   692                              <1>             mov esi, %2
+   693                              <1>         %endif
+   694                              <1>     %else
+   695                              <1>         mov esi, %2
+   696                              <1>     %endif
+   697                              <1>     %pop
+   698                              <1>     
+   699                              <1>     pushf
+   700                              <1>     push eax
+   701                              <1>     push ecx
+   702                              <1>     push edx
+   703                              <1>     ALIGN_STACK 0
+   704                              <1>     call get_stdin
+   705                              <1>     UNALIGN_STACK
+   706                              <1>     ALIGN_STACK 12
+   707                              <1>     push eax
+   708                              <1>     push esi ; count
+   709                              <1>     push %1
+   710                              <1> %elifnum %1
+   711                              <1>     %error "Incorrect 1st parameter (number)"
+   712                              <1> %elifstr %1
+   713                              <1>     %error "Incorrect 1st parameter (string)"
+   714                              <1> %else
+   715                              <1> ; may be, address expression?
+   716                              <1>     
+   717                              <1>     jmp %%after_data
+   718                              <1> section .data
+   719                              <1>     %%tmp dd 0
+   720                              <1> section .text
+   721                              <1> %%after_data:
+   722                              <1> 
+   723                              <1>     ; may use register esp, need to take care
+   724                              <1>     mov dword [%%tmp], edi
+   725                              <1>     lea edi, %1
+   726                              <1>     
+   727                              <1>     push esi
+   728                              <1>     ;count
+   729                              <1>     IS_GPR %2
+   730                              <1>     %if %$is_reg = 1 
+   731                              <1>         %if %$reg_size = 1
+   732                              <1>             movzx esi, %2
+   733                              <1>         %elif %$reg_size = 2
+   734                              <1>             movzx esi, %2
+   735                              <1>         %else ; %$reg_size = 4
+   736                              <1>             mov esi, %2
+   737                              <1>         %endif
+   738                              <1>     %else
+   739                              <1>         mov esi, %2
+   740                              <1>     %endif
+   741                              <1>     %pop
+   742                              <1> 
+   743                              <1>     pushf
+   744                              <1>     push eax
+   745                              <1>     push ecx
+   746                              <1>     push edx
+   747                              <1>     ALIGN_STACK 0
+   748                              <1>     call get_stdin
+   749                              <1>     UNALIGN_STACK
+   750                              <1>     ALIGN_STACK 12
+   751                              <1>     push eax    
+   752                              <1>     push esi ; count
+   753                              <1>     push edi
+   754                              <1>  
+   755                              <1>     mov edi, dword [%%tmp]
+   756                              <1> %endif
+   757                              <1> 
+   758                              <1>     call fgets
+   759                              <1>     UNALIGN_STACK
+   760                              <1> 
+   761                              <1>     pop edx
+   762                              <1>     pop ecx
+   763                              <1>     pop eax
+   764                              <1>     popf
+   765                              <1>     pop esi
+   766                              <1>     sasmMacroFuncE
+   767                              <1> %endmacro
+   768                              <1> %endif
+   769                              <1> 
+     2                                  
+     3                                  section .data
+     4 00000000 456E74657220612C20-         start_msg db "Enter a, b:", 10, 13, 0
+     4 00000009 623A0A0D00         
+     5 0000000E 456E746572206B3A0A-         optional_msg db "Enter k:", 10, 13, 0
+     5 00000017 0D00               
+     6 00000019 526573756C74206973-         result_msg db "Result is: f = ", 0
+     6 00000022 3A2066203D2000     
+     7 00000029 0A0D00                      end_line db 10, 13, 0
+     8                                      
+     9                                  section .bss
+    10 00000000 <res 14h>                   a resw 10
+    11 00000014 <res 14h>                   b resw 10
+    12 00000028 <res 14h>                   k resw 10
+    13 0000003C <res 14h>                   f resw 10
+    14                                  
+    15                                  section .text
+    16                                  global CMAIN
+    17                                  CMAIN:
+    18 00000000 89E5                        mov ebp, esp ; Debugging
+    19 00000002 31C0                        xor eax, eax ; eax clearing
+    20 00000004 E802000000EB6AEB00-         PRINT_STRING start_msg
+    20 0000002C 00000000538B5C2404-
+    20 00000012 891D[2C000000]8B1C-
+    20 0000001A 24895C24045B5B9C52-
+    20 00000023 5150C800000083EC00-
+    20 0000002C 83E4F083C400E8-    
+    20 00000033 (00000000)C9C80000-
+    20 0000003B 0083EC0883E4F083C4-
+    20 00000044 085068[00000000]E8-
+    20 0000004C (00000000)C9C80000-
+    20 00000054 0083EC0483E4F083C4-
+    20 0000005D 04E8(00000000)50E8-
+    20 00000065 (00000000)C958595A-
+    20 0000006D 9DFF35[2C000000]C3 
+    21                                      
+    22 00000075 E802000000EB55EB00-         GET_DEC 4, [a]
+    22 00000030 00000000538B5C2404-
+    22 00000083 891D[30000000]8B1C-
+    22 0000008B 24895C24045B5BEB03-
+    22 00000094 256400EB0000000000-
+    22 00000038 00000000A3-        
+    22 0000009A [34000000]8D05-    
+    22 000000A0 [00000000]9CFF35-  
+    22 000000A7 [34000000]5152C800-
+    22 000000AF 000083EC0883E4F083-
+    22 000000B8 C4085068[94000000]-
+    22 000000C0 E8(00000000)C95A59-
+    22 000000C8 589DFF35[30000000]-
+    22 000000D0 C3                 
+    23 000000D1 E802000000EB55EB00-         GET_DEC 4, [b]
+    23 0000003C 00000000538B5C2404-
+    23 000000DF 891D[3C000000]8B1C-
+    23 000000E7 24895C24045B5BEB03-
+    23 000000F0 256400EB0000000000-
+    23 00000044 00000000A3-        
+    23 000000F6 [40000000]8D05-    
+    23 000000FC [14000000]9CFF35-  
+    23 00000103 [40000000]5152C800-
+    23 0000010B 000083EC0883E4F083-
+    23 00000114 C4085068[F0000000]-
+    23 0000011C E8(00000000)C95A59-
+    23 00000124 589DFF35[3C000000]-
+    23 0000012C C3                 
+    24 0000012D A1[00000000]                mov eax, [a]
+    25 00000132 0305[14000000]              add eax, [b]
+    26                                      
+    27 00000138 83F800                      cmp eax, 0
+    28 0000013B 7F05                        jg TRUE_LABEL ; If true
+    29 0000013D E9E6000000                  jmp CONTINUE ; If false
+    30                                      
+    31                                  TRUE_LABEL:
+    32 00000142 E802000000EB6AEB00-         PRINT_STRING optional_msg
+    32 00000048 00000000538B5C2404-
+    32 00000150 891D[48000000]8B1C-
+    32 00000158 24895C24045B5B9C52-
+    32 00000161 5150C800000083EC00-
+    32 0000016A 83E4F083C400E8-    
+    32 00000171 (00000000)C9C80000-
+    32 00000179 0083EC0883E4F083C4-
+    32 00000182 085068[0E000000]E8-
+    32 0000018A (00000000)C9C80000-
+    32 00000192 0083EC0483E4F083C4-
+    32 0000019B 04E8(00000000)50E8-
+    32 000001A3 (00000000)C958595A-
+    32 000001AB 9DFF35[48000000]C3 
+    33 000001B3 E802000000EB55EB00-         GET_DEC 4, [k]
+    33 0000004C 00000000538B5C2404-
+    33 000001C1 891D[4C000000]8B1C-
+    33 000001C9 24895C24045B5BEB03-
+    33 000001D2 256400EB0000000000-
+    33 00000054 00000000A3-        
+    33 000001D8 [50000000]8D05-    
+    33 000001DE [28000000]9CFF35-  
+    33 000001E5 [50000000]5152C800-
+    33 000001ED 000083EC0883E4F083-
+    33 000001F6 C4085068[D2010000]-
+    33 000001FE E8(00000000)C95A59-
+    33 00000206 589DFF35[4C000000]-
+    33 0000020E C3                 
+    34                                      
+    35 0000020F A1[00000000]                mov eax, [a]
+    36 00000214 8B1D[14000000]              mov ebx, [b]
+    37 0000021A 8B0D[28000000]              mov ecx, [k]
+    38                                      
+    39 00000220 0FAFC3                      imul eax, ebx
+    40 00000223 99                          cdq
+    41 00000224 F7F9                        idiv ecx
+    42 00000226 EB00                        jmp CONTINUE
+    43                                  
+    44                                  
+    45                                  CONTINUE:
+    46 00000228 E802000000EB6AEB00-         PRINT_STRING result_msg
+    46 00000058 00000000538B5C2404-
+    46 00000236 891D[58000000]8B1C-
+    46 0000023E 24895C24045B5B9C52-
+    46 00000247 5150C800000083EC00-
+    46 00000250 83E4F083C400E8-    
+    46 00000257 (00000000)C9C80000-
+    46 0000025F 0083EC0883E4F083C4-
+    46 00000268 085068[19000000]E8-
+    46 00000270 (00000000)C9C80000-
+    46 00000278 0083EC0483E4F083C4-
+    46 00000281 04E8(00000000)50E8-
+    46 00000289 (00000000)C958595A-
+    46 00000291 9DFF35[58000000]C3 
+    47 00000299 A3[3C000000]                mov [f], eax
+    48 0000029E E802000000EB6DEB00-         PRINT_DEC 4, [f]
+    48 0000005C 00000000538B5C2404-
+    48 000002AC 891D[5C000000]8B1C-
+    48 000002B4 24895C24045B5BEB03-
+    48 000002BD 256400EB0000000000-
+    48 000002C2 A3[60000000]A1-    
+    48 000002C8 [3C000000]9CFF35-  
+    48 000002CF [60000000]5152C800-
+    48 000002D7 000083EC0883E4F083-
+    48 000002E0 C4085068[BD020000]-
+    48 000002E8 E8(00000000)C9C800-
+    48 000002F0 000083EC0483E4F083-
+    48 000002F9 C404E8(00000000)50-
+    48 00000301 E8(00000000)C95A59-
+    48 00000309 589DFF35[5C000000]-
+    48 00000311 C3                 
+    49 00000312 E802000000EB6AEB00-         PRINT_STRING end_line
+    49 00000064 00000000538B5C2404-
+    49 00000320 891D[64000000]8B1C-
+    49 00000328 24895C24045B5B9C52-
+    49 00000331 5150C800000083EC00-
+    49 0000033A 83E4F083C400E8-    
+    49 00000341 (00000000)C9C80000-
+    49 00000349 0083EC0883E4F083C4-
+    49 00000352 085068[29000000]E8-
+    49 0000035A (00000000)C9C80000-
+    49 00000362 0083EC0483E4F083C4-
+    49 0000036B 04E8(00000000)50E8-
+    49 00000373 (00000000)C958595A-
+    49 0000037B 9DFF35[64000000]C3 
+    50 00000383 C3                          ret    
