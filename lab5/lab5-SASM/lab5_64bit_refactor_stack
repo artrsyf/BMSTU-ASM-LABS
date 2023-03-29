@@ -1,0 +1,122 @@
+global _Z4str1PKciPc
+extern _Z6print1i
+
+
+
+section .text
+_Z4str1PKciPc:
+    ;prolog
+    push rbp
+    mov rbp,rsp
+    push rdi
+    push rsi
+    push rdx
+
+    mov rax, ' '
+
+    xor rbx, rbx
+    xor rcx, rcx
+    xor rsi, rsi
+    xor rdx, rdx
+    cld
+cycle:
+    mov rdx, [rdi]
+    cmp rdx, '\'
+    je end_string
+
+    inc rcx
+    scasb
+    je white_space
+
+    jmp cycle
+white_space:
+    inc rsi
+    jmp cycle
+end_string:
+    push rsi
+    push rcx
+    mov rcx, [rsp+24] ;according to second proc param - int(esp + 12)
+    sub rcx, [rsp] ; on this step esp is pointing on str_len
+    push rcx
+    cmp rsi, 0
+    je small_block
+    jmp big_block
+
+small_block:
+    mov rcx, [rsp]
+    mov rsi, [rsp+40]
+    mov rdi, [rsp+24]
+    mov rax, ' '
+    cld
+
+    cycle2:
+         mov [rdi], rax
+         inc rdi
+         loop cycle2
+
+    mov rcx, [rsp+8]
+    rep movsb
+
+    jmp finalization
+
+big_block:
+
+    mov rax, [rsp]
+
+    mov rcx, [rsp+16]
+    cdq
+    idiv rcx
+
+    push rax
+
+    push rdx
+
+    mov rdi, [rsp+40]
+
+    mov rsi, [esp+56]
+
+    mov rcx, [esp+24]
+    mov rax, ' '
+    cld
+
+    cycle3:
+        cmp [rsi], rax
+        je process
+        movsb
+        jmp cycle3_end
+
+        process:
+            push rcx
+            mov rcx, [rsp+16] ; considering ecx on previous line
+
+            inc rsi
+            mov [rdi], rax
+            inc rdi
+            cycle3_2:
+                mov [rdi], rax
+                inc rdi
+                loop cycle3_2
+            pop rcx
+
+        cycle3_end:
+            loop cycle3
+
+    big_block_finalization:
+        pop rcx
+
+        pop rcx
+
+finalization:
+    pop rcx
+    pop rcx
+    pop rcx
+    pop rdx
+
+    ;epilog
+    pop rsi
+    pop rdi
+    mov rsp,rbp
+    pop rbp
+    mov rax, 3
+    ret
+
