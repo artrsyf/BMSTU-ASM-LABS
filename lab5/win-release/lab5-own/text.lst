@@ -1,0 +1,123 @@
+     1                                  global _Z4str1PKciPc
+     2                                  extern _Z6print1Pc
+     3                                  
+     4                                  section .text
+     5                                  _Z4str1PKciPc:
+     6                                      ; Prolog
+     7 00000000 55                          push rbp
+     8 00000001 4889E5                      mov rbp,rsp
+     9 00000004 57                          push rdi
+    10 00000005 56                          push rsi
+    11 00000006 52                          push rdx
+    12                                  
+    13                                      ; Preparation
+    14 00000007 B020                        mov al, ' '
+    15 00000009 4831DB                      xor rbx, rbx
+    16 0000000C 4831C9                      xor rcx, rcx
+    17 0000000F 4831F6                      xor rsi, rsi
+    18 00000012 4831D2                      xor rdx, rdx
+    19 00000015 FC                          cld
+    20                                  ; Cycle processes string and calculates main features
+    21                                  cycle:
+    22 00000016 8A17                        mov dl, [rdi]
+    23 00000018 80FA00                      cmp dl, 0
+    24 0000001B 740D                        je end_string
+    25                                  
+    26 0000001D 48FFC1                      inc rcx
+    27 00000020 AE                          scasb
+    28 00000021 7402                        je white_space
+    29                                  
+    30 00000023 EBF1                        jmp cycle
+    31                                  white_space:
+    32 00000025 48FFC6                      inc rsi
+    33 00000028 EBEC                        jmp cycle
+    34                                  end_string:
+    35 0000002A 56                          push rsi
+    36 0000002B 51                          push rcx
+    37 0000002C 488B4C2418                  mov rcx, [rsp+24] ; According to second proc param - int(esp + 24 - in stack)
+    38 00000031 482B0C24                    sub rcx, [rsp] ; On this step RSP is pointing on str_len
+    39 00000035 51                          push rcx
+    40 00000036 4883FE00                    cmp rsi, 0
+    41 0000003A 7402                        je small_block ; If string is without spaces
+    42 0000003C EB21                        jmp big_block  ; In opposite case
+    43                                  
+    44                                  small_block:
+    45 0000003E 488B0C24                    mov rcx, [rsp]
+    46 00000042 488B742428                  mov rsi, [rsp+40]
+    47 00000047 488B7C2418                  mov rdi, [rsp+24]
+    48 0000004C B020                        mov al, ' '
+    49 0000004E FC                          cld
+    50                                  
+    51                                      cycle2:
+    52 0000004F 8807                             mov [rdi], al
+    53 00000051 48FFC7                           inc rdi
+    54 00000054 E2F9                             loop cycle2
+    55                                  
+    56 00000056 488B4C2408                  mov rcx, [rsp+8]
+    57 0000005B F3A4                        rep movsb
+    58                                  
+    59 0000005D EB50                        jmp finalization
+    60                                  
+    61                                  big_block:
+    62 0000005F 488B0424                    mov rax, [rsp]
+    63 00000063 488B4C2410                  mov rcx, [rsp+16]
+    64                                  
+    65 00000068 99                          cdq
+    66                                  
+    67 00000069 48F7F9                      idiv rcx
+    68                                  
+    69 0000006C 50                          push rax
+    70 0000006D 52                          push rdx
+    71                                  
+    72 0000006E 488B7C2428                  mov rdi, [rsp+40]
+    73 00000073 488B742438                  mov rsi, [rsp+56] ; Fixed
+    74 00000078 488B4C2418                  mov rcx, [rsp+24]
+    75                                  
+    76 0000007D B020                        mov al, ' '
+    77 0000007F FC                          cld
+    78                                  
+    79                                      cycle3:
+    80 00000080 3806                            cmp [rsi], al
+    81 00000082 7403                            je process
+    82 00000084 A4                              movsb
+    83 00000085 EB24                            jmp cycle3_end
+    84                                  
+    85                                          process:
+    86 00000087 51                                  push rcx
+    87 00000088 488B4C2410                          mov rcx, [rsp+16] ; considering ecx on previous line
+    88 0000008D 48034C2408                          add rcx, [rsp+8] ; remain adding
+    89 00000092 48C744240800000000                  mov qword[rsp+8], 0 ; Only one time remain is needed
+    90                                  
+    91 0000009B 48FFC6                              inc rsi
+    92 0000009E 8807                                mov [rdi], al
+    93 000000A0 48FFC7                              inc rdi
+    94                                              cycle3_2:
+    95 000000A3 8807                                    mov [rdi], al
+    96 000000A5 48FFC7                                  inc rdi
+    97 000000A8 E2F9                                    loop cycle3_2
+    98 000000AA 59                                  pop rcx
+    99                                  
+   100                                          cycle3_end:
+   101 000000AB E2D3                                loop cycle3
+   102                                  
+   103                                      big_block_finalization:
+   104 000000AD 59                              pop rcx
+   105 000000AE 59                              pop rcx
+   106                                  
+   107                                  finalization:
+   108 000000AF 59                          pop rcx
+   109 000000B0 59                          pop rcx
+   110 000000B1 59                          pop rcx
+   111 000000B2 5A                          pop rdx
+   112                                  
+   113                                      ;console output:
+   114 000000B3 4889D7                      mov rdi, rdx
+   115 000000B6 E8(00000000)                call _Z6print1Pc
+   116                                  
+   117                                      ;epilog
+   118 000000BB 5E                          pop rsi
+   119 000000BC 5F                          pop rdi
+   120 000000BD 4889EC                      mov rsp,rbp
+   121 000000C0 5D                          pop rbp
+   122 000000C1 B803000000                  mov rax, 3
+   123 000000C6 C3                          ret
